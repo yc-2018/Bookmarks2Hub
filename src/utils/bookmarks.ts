@@ -67,8 +67,10 @@ const ROOT_TITLE_ALIASES: Record<string, RootBookmarksType> = {
  * 判断一个节点属于哪个根分类，不是根分类时返回 undefined。
  * 参数只要求用到的那几个字段，远端节点（只有 title）和本地节点都能直接传。
  */
-export function rootTypeOf(node: Pick<BookmarkInfo, 'id' | 'title' | 'folderType'> | undefined): RootBookmarksType | undefined {
-    if (!node) return undefined
+export function rootTypeOf(node: Pick<BookmarkInfo, 'id' | 'title' | 'folderType' | 'url'> | undefined): RootBookmarksType | undefined {
+    // 根分类一定是文件夹。顶层偶尔会出现手写的书签，标题恰好叫「书签栏」，
+    // 把它当根分类会让 createBookmarkTree 直接跳过这一项、书签被丢掉。
+    if (!node || node.url) return undefined
     const byId = node.id ? ROOT_ID_TO_TYPE[node.id] : undefined
     if (byId) return byId
     const byFolderType = node.folderType ? ROOT_FOLDER_TYPE_TO_TYPE[node.folderType] : undefined
