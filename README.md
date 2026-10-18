@@ -53,8 +53,16 @@ Packages are on [GitHub Releases](https://github.com/yc-2018/BookmarkHub/release
 **Chrome / Edge**: open `chrome://extensions` (`edge://extensions`) → enable *Developer mode* → drag the chrome zip onto the page, or unzip it and use *Load unpacked*. Installing a newer version the same way updates the extension in place and keeps your settings. The popup footer has a *检查更新* (check for updates) link that compares the installed version with the latest release and links to it when a newer one exists.
 
 > Upgrading from 1.3.3 or earlier: those builds had no fixed extension ID, so every install showed up as a new extension. Remove the old entry first, install the new build, and enter your token and snippet ID once more. Later upgrades will not need this.
+>
+> If more than one BookmarkHub / Bookmarks 2 Hub entry is listed, remove all of them and install the new build once. The new build's fixed ID is `cagopejcnnfcecidchgcgobaaiikgkgb` (shown under *Details*); old builds may still write bookmarks using localized root-folder names.
+>
+> Since 1.9.1, download and compare recognize legacy root-folder names such as `书签栏 / 其他书签 / 收藏夹栏`, so a Gist written by an old build lands in the correct roots instead of being nested under Other Bookmarks.
 
 **Firefox**: open `about:debugging#/runtime/this-firefox` → *Load Temporary Add-on* → pick the firefox zip. Temporary add-ons are removed when Firefox restarts.
+
+> Firefox Release rejects unsigned xpi files, so *Install Add-on From File* reports "this add-on appears to be corrupt". That is the signature check, not a damaged package; temporary loading bypasses it. Since 1.9.1 the Firefox build has a fixed add-on ID, so settings are actually written to `storage.sync` and survive a browser restart + temporary reload (tested on Firefox 158).
+>
+> To install permanently: submit the firefox zip to [addons.mozilla.org](https://addons.mozilla.org/developers/) and choose unlisted/self-distributed signing (free), then install the signed xpi; or use Firefox Developer Edition / Nightly and set `xpinstall.signatures.required` to `false` in `about:config`. Release builds ignore that pref.
 
 > The BookmarkHub listed in the browser stores is the upstream version by dudor and **does not** include this fork's changes.
 

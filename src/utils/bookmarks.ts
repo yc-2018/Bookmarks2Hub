@@ -1,5 +1,100 @@
 import { BookmarkInfo, BrowserType, RootBookmarksType } from './models'
 
+/**
+ * 根分类的稳定识别。
+ *
+ * 下载/导入时只能靠远端节点自己的信息判断它是不是根分类。历史上不同版本的
+ * 扩展、不同语言的浏览器写进 Gist 的根标题并不统一：老版本可能写的是
+ * 「书签栏 / 其他书签」这类本地化标题，Chrome 155 起还会给根目录挂 folderType。
+ * 只认 RootBookmarksType 的枚举值会把它们当成普通文件夹，整棵子树被塞进
+ * 「其他书签」——这就是 Chrome 155 上「书签栏空了、其他书签里套着一层
+ * 书签栏和其他书签」的成因。下面按 id → folderType → 标题别名依次识别。
+ */
+const ROOT_ID_TO_TYPE: Record<string, RootBookmarksType> = {
+    '1': RootBookmarksType.ToolbarFolder,
+    '2': RootBookmarksType.UnfiledFolder,
+    '3': RootBookmarksType.MobileFolder,
+    'toolbar_____': RootBookmarksType.ToolbarFolder,
+    'menu________': RootBookmarksType.MenuFolder,
+    'unfiled_____': RootBookmarksType.UnfiledFolder,
+    'mobile______': RootBookmarksType.MobileFolder,
+}
+
+/** Chrome/Edge 155 起根目录带的 folderType；Firefox 没有这个字段 */
+const ROOT_FOLDER_TYPE_TO_TYPE: Record<string, RootBookmarksType> = {
+    'bookmarks-bar': RootBookmarksType.ToolbarFolder,
+    'menu': RootBookmarksType.MenuFolder,
+    'other': RootBookmarksType.UnfiledFolder,
+    'mobile': RootBookmarksType.MobileFolder,
+}
+
+/** 根分类标题的历史写法（中文/英文），键统一小写后匹配 */
+const ROOT_TITLE_ALIASES: Record<string, RootBookmarksType> = {
+    // 在线格式本身（Gist/导出文件里的根分类名）
+    [RootBookmarksType.ToolbarFolder]: RootBookmarksType.ToolbarFolder,
+    [RootBookmarksType.MenuFolder]: RootBookmarksType.MenuFolder,
+    [RootBookmarksType.UnfiledFolder]: RootBookmarksType.UnfiledFolder,
+    [RootBookmarksType.MobileFolder]: RootBookmarksType.MobileFolder,
+    // 老版本 / 浏览器本地化标题
+    // Chrome / Firefox 中文
+    '书签栏': RootBookmarksType.ToolbarFolder,
+    '书签工具栏': RootBookmarksType.ToolbarFolder,
+    '书签菜单': RootBookmarksType.MenuFolder,
+    '其他书签': RootBookmarksType.UnfiledFolder,
+    '其它书签': RootBookmarksType.UnfiledFolder,
+    '移动设备书签': RootBookmarksType.MobileFolder,
+    // Firefox 实际的中文标题是「移动设备上的书签」
+    '移动设备上的书签': RootBookmarksType.MobileFolder,
+    // Edge / 英文 Chromium
+    'favorites bar': RootBookmarksType.ToolbarFolder,
+    'other favorites': RootBookmarksType.UnfiledFolder,
+    'favorites menu': RootBookmarksType.MenuFolder,
+    'mobile favorites': RootBookmarksType.MobileFolder,
+    '收藏夹栏': RootBookmarksType.ToolbarFolder,
+    '其他收藏夹': RootBookmarksType.UnfiledFolder,
+    '收藏夹菜单': RootBookmarksType.MenuFolder,
+    '移动收藏夹': RootBookmarksType.MobileFolder,
+    // 英文 Firefox
+    'bookmarks bar': RootBookmarksType.ToolbarFolder,
+    'bookmarks toolbar': RootBookmarksType.ToolbarFolder,
+    'bookmarks menu': RootBookmarksType.MenuFolder,
+    'other bookmarks': RootBookmarksType.UnfiledFolder,
+    'unsorted bookmarks': RootBookmarksType.UnfiledFolder,
+    'mobile bookmarks': RootBookmarksType.MobileFolder,
+}
+
+/**
+ * 判断一个节点属于哪个根分类，不是根分类时返回 undefined。
+ * 参数只要求用到的那几个字段，远端节点（只有 title）和本地节点都能直接传。
+ */
+export function rootTypeOf(node: Pick<BookmarkInfo, 'id' | 'title' | 'folderType'> | undefined): RootBookmarksType | undefined {
+    if (!node) return undefined
+    const byId = node.id ? ROOT_ID_TO_TYPE[node.id] : undefined
+    if (byId) return byId
+    const byFolderType = node.folderType ? ROOT_FOLDER_TYPE_TO_TYPE[node.folderType] : undefined
+    if (byFolderType) return byFolderType
+    const title = (node.title ?? '').trim()
+    return ROOT_TITLE_ALIASES[title] ?? ROOT_TITLE_ALIASES[title.toLowerCase()]
+}
+
+/**
+ * 把顶层根分类的标题归一化成 RootBookmarksType 的枚举值（原地修改）。
+ *
+ * 老 Gist 里可能写着「书签栏」「收藏夹栏」这类本地化标题。下载时 rootTypeOf
+ * 已经能把它们放对位置，但对比是拿原始标题比的 —— 不归一化就会永远报
+ * 「有差异」且无法归类。归一化后旧数据也能与本地判为一致；下次上传时
+ * 写回 Gist 的就成了标准格式。
+ */
+export function normalizeRootTitles(nodes: BookmarkInfo[] | undefined): BookmarkInfo[] | undefined {
+    for (const node of nodes ?? []) {
+        const type = rootTypeOf(node)
+        if (type) {
+            node.title = type
+        }
+    }
+    return nodes
+}
+
 /** 根目录文件夹的中文展示名。注意：枚举值本身是已存 gist 的在线格式，不能改。 */
 export const ROOT_FOLDER_LABELS: Record<string, string> = {
     [RootBookmarksType.ToolbarFolder]: '书签栏',
@@ -45,23 +140,10 @@ export function detectBrowserType(bookmarkTree: BookmarkInfo[]): BrowserType {
 export function formatBookmarks(bookmarks: BookmarkInfo[]): BookmarkInfo[] | undefined {
     const root = structuredClone(bookmarks[0])
     if (root?.children) {
-        for (let a of root.children) {
-            switch (a.id) {
-                case '1':
-                case 'toolbar_____':
-                    a.title = RootBookmarksType.ToolbarFolder
-                    break
-                case 'menu________':
-                    a.title = RootBookmarksType.MenuFolder
-                    break
-                case '2':
-                case 'unfiled_____':
-                    a.title = RootBookmarksType.UnfiledFolder
-                    break
-                case '3':
-                case 'mobile______':
-                    a.title = RootBookmarksType.MobileFolder
-                    break
+        for (const a of root.children) {
+            const type = rootTypeOf(a)
+            if (type) {
+                a.title = type
             }
         }
     }

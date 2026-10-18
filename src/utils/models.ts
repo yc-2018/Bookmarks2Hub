@@ -8,6 +8,8 @@ export class BookmarkInfo {
     dateGroupModified?: number | undefined;
     unmodifiable?: "managed" | undefined;
     type?: "bookmark" | "folder" | "separator" | undefined;
+    /** Chrome/Edge 155 起根目录上的分类标记：bookmarks-bar / menu / other / mobile */
+    folderType?: string | undefined;
     children?: BookmarkInfo[] | undefined;
     public constructor(title: string, url?: string, children?: BookmarkInfo[]) {
         this.title = title;

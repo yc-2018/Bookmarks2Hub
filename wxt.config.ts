@@ -34,7 +34,17 @@ export default defineConfig({
     optional_host_permissions: [
       "*://*/*",
     ],
-    ...(env.browser === 'firefox' ? {} : { key: EXTENSION_KEY }),
+    ...(env.browser === 'firefox' ? {
+      // Firefox 的 storage.sync 依赖扩展 ID 定位数据：没有它时 set() 会静默失败，
+      // 设置页填的值关掉再开就全没了。临时载入也不会持久，因为每次都是新的随机 ID。
+      // 这个 ID 一旦发布同样不要改，否则已存的设置会读不到。
+      browser_specific_settings: {
+        gecko: {
+          id: 'bookmarks2hub@yc-2018.github.io',
+          strict_min_version: '109.0',
+        },
+      },
+    } : { key: EXTENSION_KEY }),
   }),
   // Firefox 审核用的源码包只需要能构建出扩展的文件。默认会把仓库里
   // 已提交的发行 zip 一起打进去，导致每发一版体积翻倍累积。

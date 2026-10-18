@@ -52,8 +52,16 @@
 **Chrome / Edge**：打开 `chrome://extensions`（Edge 是 `edge://extensions`）→ 右上角打开「开发者模式」→ 把 chrome 包的 zip 直接拖进这个页面；或者解压后点「加载已解压的扩展程序」选中目录。升级时用同样方式再装一次即可，会原地覆盖旧版，配置不会丢。弹窗页脚的「检查更新」会把当前版本与最新发行版比对，有新版时直接给出下载页链接。
 
 > 从 1.3.3 及更早版本升级：旧版没有固定扩展 ID，每次安装都会被浏览器当成一个新扩展。请先删掉扩展列表里旧的那条，再安装新版，并重新填一次令牌和片段 ID。此后升级不再需要这一步。
+>
+> 如果扩展列表里同时存在多个 BookmarkHub / Bookmarks 2 Hub，先把它们全部移除，再装一次新版。新版固定 ID 是 `cagopejcnnfcecidchgcgobaaiikgkgb`（在「详情」里可以看到）；旧版扩展仍可能把书签写成旧格式的根目录名。
+>
+> 1.9.1 起，下载与对比会识别旧格式的「书签栏 / 其他书签 / 收藏夹栏」等根目录名。之前用旧版上传过的 Gist 也能正确回到书签栏和其他书签，不会再整棵塞进「其他书签」。
 
 **Firefox**：打开 `about:debugging#/runtime/this-firefox` →「临时载入附加组件」→ 选中 firefox 包。这是临时安装，重启浏览器后需要重新载入。
+
+> Firefox Release 会拒绝未签名的 xpi，「从文件安装附加组件」提示「该附加组件似乎已损坏」是**签名检查**，不是压缩包坏了；临时载入可以绕过。1.9.1 起 firefox 包带固定附加组件 ID，设置会真正写入 `storage.sync`，重启浏览器后重新临时载入，之前填的令牌和片段 ID 仍然在（已在本机 Firefox 158 实测）。
+>
+> 想永久安装、不用每次重启再载入：把 firefox 包提交到 [addons.mozilla.org](https://addons.mozilla.org/developers/) 选择「unlisted / 自己分发」签名（免费），安装签名后的 xpi；或者改用 Firefox Developer Edition / Nightly，并在 `about:config` 里把 `xpinstall.signatures.required` 设为 `false`。Release 版会忽略这个开关。
 
 > 各应用商店里上架的 BookmarkHub 是原作者 dudor 的上游版本，**不包含**本项目的改动（Gitee、对比、中文界面等）。
 

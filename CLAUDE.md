@@ -133,13 +133,15 @@ rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
 
 - Firefox 根节点 ID 为 `"root________"`，Chrome 为数字 `"0"`/`"1"`/`"2"`/`"3"`
 - 归一化时统一换成 `RootBookmarksType` 的标识名（`ToolbarFolder` 等），下载时再按目标浏览器映射回去
+- **根分类识别一律走 `rootTypeOf()`，不要只比标题**。它按 `id` → Chrome/Edge 155 的 `folderType`（`bookmarks-bar`/`other`/`mobile`）→ 标题别名依次判断。标题别名覆盖旧版本和本地化浏览器写下的「书签栏 / 书签工具栏 / 其他书签 / 移动设备上的书签 / 收藏夹栏 / 其他收藏夹 / Bookmarks Bar / Other Bookmarks」等。只认 `RootBookmarksType` 枚举值会把旧 Gist 的根分类当成普通文件夹，整棵子树被塞进「其他书签」——2026-10-19 在 Chrome 155 实测复现：下载后书签栏为空，其他书签里套着「书签栏」和「其他书签」两层。`normalizeRootTitles()` 在 `restoreBookmarks()` 与对比前把顶层标题改成标准枚举值，旧 Gist 才能与本地判为一致。
 - **Chrome/Edge 未必有「移动设备书签」根目录（id `"3"`）**：实测 Chrome 155 与 Edge 154 的全新 profile 根目录只有 `"1"`/`"2"`，往 `"3"` 里 `create` 会报 `Can't find parent bookmark for id.`，整棵子树只能被丢掉。所以下载前先跑 `findUnplaceableRoots()`：远端某分类有内容而本地没有对应根目录时直接报错取消（本地尚未清空），不静默丢数据
 - **`RootBookmarksType` 的枚举值是已存 Gist 的在线格式，改了会破坏兼容性，只能在展示层映射成中文**
 - Firefox 构建为 MV2，`browser.action` 不存在（MV2 是 `browser_action`）。后台用 `browser.action ?? browser.browserAction` 回退，新增角标相关代码必须沿用
+- **Firefox 的 `storage.sync` 依赖扩展 ID**（`browser_specific_settings.gecko.id`）：没有 ID 时写入会静默失败，表现为设置页填什么、关掉再开就没了。`wxt.config.ts` 的 Firefox manifest 现在固定写 `bookmarks2hub@yc-2018.github.io`，不要改；改了这个 ID 等于换存储分区，用户的令牌和片段 ID 会读不到。2026-10-19 在本机 Firefox 158 实测：带 ID 后设置写入 `storage.sync`，重启浏览器并重新临时载入附加组件后值仍在。
 
 ### 扩展 ID 与 manifest 的 `key` 字段
 
-`wxt.config.ts` 里的 `EXTENSION_KEY` 是一把 RSA 公钥（base64 的 SPKI DER），Chrome/Edge 构建的 manifest 带 `key` 字段，Firefox 构建不带 —— manifest 用函数形式按 `env.browser` 区分，Firefox 用的是 `browser_specific_settings.gecko.id`，这个字段对它没有意义。**这个值一旦发布就不能改**：扩展 ID = SHA-256(DER 公钥) 前 16 字节、十六进制按 0-f → a-p 映射，固定为 `cagopejcnnfcecidchgcgobaaiikgkgb`；改了等于换 ID，而 `storage` 按 ID 隔离，所有用户的令牌和片段 ID 都要重填。私钥没有保留：2026-10-09 生成后即删除，无备份，也无法从公钥反推。它只在打签名 crx 或上架商店时才用得到，而本项目只走 zip + 加载已解压 —— 构建、CI、发版、覆盖安装全都不需要它。将来若真要打 crx，只能换新钥匙，等于换 ID、全员迁移一次。
+`wxt.config.ts` 里的 `EXTENSION_KEY` 是一把 RSA 公钥（base64 的 SPKI DER），Chrome/Edge 构建的 manifest 带 `key` 字段；Firefox 构建不带 `key`，改用 `browser_specific_settings.gecko.id`，固定为 `bookmarks2hub@yc-2018.github.io`。这是两套独立的 ID，都**一旦发布就不能改**：Chrome 扩展 ID = SHA-256(DER 公钥) 前 16 字节、十六进制按 0-f → a-p 映射，固定为 `cagopejcnnfcecidchgcgobaaiikgkgb`；Firefox 的 gecko id 是 `storage.sync` 的分区键。改了任何一个都等于换 ID，而 `storage` 按 ID 隔离，所有用户的令牌和片段 ID 都要重填。Chrome 私钥没有保留：2026-10-09 生成后即删除，无备份，也无法从公钥反推。它只在打签名 crx 或上架商店时才用得到，而本项目只走 zip + 加载已解压 —— 构建、CI、发版、覆盖安装全都不需要它。将来若真要打 crx，只能换新钥匙，等于换 ID、全员迁移一次。
 
 为什么必须有它（2026-10-09 在本机 Chrome 155 上实测，不是推断）：Chromium 把拖进 `chrome://extensions` 的 zip 当作「已解压扩展」安装，解压到 `<profile>/UnpackedExtensions/<包名>_<进程号>_<随机数>/`；没有 `key` 的已解压扩展，ID 来自**解压目录绝对路径**的哈希（`crx_file::id_util::GenerateIdForPath`，Windows 下取路径的 UTF-16LE 字节）。目录名每次都不同 → ID 每次都不同 → 每拖一次就多一条「新扩展」，而且新的那条 storage 是空的、永远停在未配置状态。用户 Chrome 里残留的 `UnpackedExtensions\bookmarkhub-1.0.2-chrome_28692_553569640` 目录和 ID `haedikijkpbmanjmahmpoleebeijcphi` 就是这么来的，按上述算法从该路径算出的 ID 与之完全一致。有了 `key`，ID 与路径无关，再装就是原地覆盖。
 

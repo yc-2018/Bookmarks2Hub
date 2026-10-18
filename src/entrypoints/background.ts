@@ -3,7 +3,7 @@ import { HTTPError } from 'ky'
 import { Setting, activeCredentials, providerInfo, providerId, isValidToken, isValidSnippetId, uploadTargets, PROVIDERS, ProviderId } from '../utils/setting'
 import iconLogo from '../assets/icon.png'
 import { OperType, BookmarkInfo, SyncDataInfo, RootBookmarksType, BrowserType } from '../utils/models'
-import { detectBrowserType, displayFolderName, formatBookmarks, getBookmarkCount } from '../utils/bookmarks'
+import { detectBrowserType, displayFolderName, formatBookmarks, getBookmarkCount, normalizeRootTitles, rootTypeOf } from '../utils/bookmarks'
 import { diffBookmarks } from '../utils/diff'
 import { OperResult } from '../utils/messages'
 import { Bookmarks } from 'wxt/browser'
@@ -278,6 +278,9 @@ export default defineBackground(() => {
 
   /** 清空本地书签树再按给定数据重建，返回写入的书签数。download 与 import 共用。 */
   async function restoreBookmarks(bookmarks: BookmarkInfo[]): Promise<number> {
+    // 老 Gist / 老导出文件里的根标题可能是本地化名称，先统一成在线格式标识名。
+    // 识别本身交给 rootTypeOf，但归一化后后续的对比、再次导出也都是标准格式。
+    normalizeRootTitles(bookmarks)
     const localTree = await getBookmarks()   // 刷新 curBrowserType，建树时需要
     // 建树只能把书签放进浏览器已有的根目录。Chrome/Edge 未必有「移动设备书签」（id "3"），
     // 缺了它 create 会失败、整棵子树被丢掉，而本地这时已经被清空 —— 所以先拦下来再动手。
@@ -314,6 +317,9 @@ export default defineBackground(() => {
         throw new Error(`远端未找到文件 ${setting.gistFileName}`)
       }
       const syncdata: SyncDataInfo = JSON.parse(gist)
+      // 旧 Gist 的根分类可能还是「书签栏」这类本地化标题：先归一化再比，
+      // 否则同步内容其实一致也会被报成差异。回传的 remoteBookmarks 同样已是标准格式。
+      normalizeRootTitles(syncdata.bookmarks)
       const localBookmarks = formatBookmarks(await getBookmarks())
       const diff = diffBookmarks(localBookmarks, syncdata.bookmarks, {
         createDate: syncdata.createDate,
@@ -352,12 +358,18 @@ export default defineBackground(() => {
   }
 
   /**
-   * 远端根分类名 → 当前浏览器对应的根目录 id。
+   * 根分类 → 当前浏览器对应的根目录 id。
+   * 识别统一交给 rootTypeOf：它同时认枚举名、Chrome 的 folderType、以及
+   * 老版本 / 本地化浏览器写下的「书签栏」「其他书签」等标题。
    * 菜单与「其他」在 Chrome 系下合并到 "2"；返回 undefined 表示不是根分类。
    */
-  function rootParentId(title: string): string | undefined {
+  function rootParentId(node: BookmarkInfo): string | undefined {
+    const type = rootTypeOf(node)
+    if (!type) {
+      return undefined
+    }
     if (curBrowserType == BrowserType.FIREFOX) {
-      switch (title) {
+      switch (type) {
         case RootBookmarksType.MenuFolder: return "menu________"
         case RootBookmarksType.MobileFolder: return "mobile______"
         case RootBookmarksType.ToolbarFolder: return "toolbar_____"
@@ -365,7 +377,7 @@ export default defineBackground(() => {
       }
       return undefined
     }
-    switch (title) {
+    switch (type) {
       case RootBookmarksType.MobileFolder: return "3"
       case RootBookmarksType.ToolbarFolder: return "1"
       case RootBookmarksType.UnfiledFolder:
@@ -382,7 +394,7 @@ export default defineBackground(() => {
   function findUnplaceableRoots(remoteRoots: BookmarkInfo[] | undefined, localRootIds: Set<string | undefined>): { name: string, count: number }[] {
     const lost: { name: string, count: number }[] = []
     for (const node of remoteRoots ?? []) {
-      const parentId = rootParentId(node.title)
+      const parentId = rootParentId(node)
       const count = getBookmarkCount(node.children)
       if (parentId && !localRootIds.has(parentId) && count > 0) {
         lost.push({ name: displayFolderName(node.title), count })
@@ -397,7 +409,7 @@ export default defineBackground(() => {
     }
     for (let i = 0; i < bookmarkList.length; i++) {
       let node = bookmarkList[i]
-      const rootId = rootParentId(node.title)
+      const rootId = rootParentId(node)
       if (rootId) {
         node.children?.forEach(c => c.parentId = rootId);
         await createBookmarkTree(node.children);
