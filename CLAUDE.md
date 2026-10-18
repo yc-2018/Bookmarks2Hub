@@ -134,7 +134,8 @@ rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
 - Firefox 根节点 ID 为 `"root________"`，Chrome 为数字 `"0"`/`"1"`/`"2"`/`"3"`
 - 归一化时统一换成 `RootBookmarksType` 的标识名（`ToolbarFolder` 等），下载时再按目标浏览器映射回去
 - **根分类识别一律走 `rootTypeOf()`，不要只比标题**。它按 `id` → Chrome/Edge 155 的 `folderType`（`bookmarks-bar`/`other`/`mobile`）→ 标题别名依次判断。标题别名覆盖旧版本和本地化浏览器写下的「书签栏 / 书签工具栏 / 其他书签 / 移动设备上的书签 / 收藏夹栏 / 其他收藏夹 / Bookmarks Bar / Other Bookmarks」等。只认 `RootBookmarksType` 枚举值会把旧 Gist 的根分类当成普通文件夹，整棵子树被塞进「其他书签」——2026-10-19 在 Chrome 155 实测复现：下载后书签栏为空，其他书签里套着「书签栏」和「其他书签」两层。`normalizeRootTitles()` 在 `restoreBookmarks()` 与对比前把顶层标题改成标准枚举值，旧 Gist 才能与本地判为一致。
-- **Chrome/Edge 未必有「移动设备书签」根目录（id `"3"`）**：实测 Chrome 155 与 Edge 154 的全新 profile 根目录只有 `"1"`/`"2"`，往 `"3"` 里 `create` 会报 `Can't find parent bookmark for id.`，整棵子树只能被丢掉。所以下载前先跑 `findUnplaceableRoots()`：远端某分类有内容而本地没有对应根目录时直接报错取消（本地尚未清空），不静默丢数据
+- **建树时不要硬编码根目录 id**。`getBookmarks()` 用 `buildRootIdMap()` 按 `rootTypeOf()` 把浏览器实际返回的根节点建成「类型 → id」表，`rootParentId()` 再按类型查表；`resolveRootId()` 负责 Chrome/Edge 没有「书签菜单」时把菜单合并到「其他书签」。Chrome 的 `"1"`/`"2"`/`"3"` 只是常见值，老 profile、从别的浏览器导入过的 profile、某些 Chromium 分支都可能给出别的 id —— 2026-10-19 用户 Chrome 155 报「缺少书签栏、其他书签」，就是因为旧代码只认 `"1"`/`"2"`，本地实际 id 对不上。
+- **Chrome/Edge 未必有「移动设备书签」根目录**：实测 Chrome 155 与 Edge 154 的全新 profile 根目录只有书签栏和其他书签，没有移动设备书签；缺了它 `create` 会报 `Can't find parent bookmark for id.`，整棵子树只能被丢掉。所以下载前先跑 `findUnplaceableRoots()`：远端某分类有内容而本地没有对应根目录时直接报错取消（本地尚未清空），不静默丢数据。这个检查也按类型查表，不比较字符串 id。
 - **`RootBookmarksType` 的枚举值是已存 Gist 的在线格式，改了会破坏兼容性，只能在展示层映射成中文**
 - Firefox 构建为 MV2，`browser.action` 不存在（MV2 是 `browser_action`）。后台用 `browser.action ?? browser.browserAction` 回退，新增角标相关代码必须沿用
 - **Firefox 的 `storage.sync` 依赖扩展 ID**（`browser_specific_settings.gecko.id`）：没有 ID 时写入会静默失败，表现为设置页填什么、关掉再开就没了。`wxt.config.ts` 的 Firefox manifest 现在固定写 `bookmarks2hub@yc-2018.github.io`，不要改；改了这个 ID 等于换存储分区，用户的令牌和片段 ID 会读不到。2026-10-19 在本机 Firefox 158 实测：带 ID 后设置写入 `storage.sync`，重启浏览器并重新临时载入附加组件后值仍在。

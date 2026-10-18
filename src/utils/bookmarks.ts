@@ -97,6 +97,40 @@ export function normalizeRootTitles(nodes: BookmarkInfo[] | undefined): Bookmark
     return nodes
 }
 
+/**
+ * 当前浏览器实际存在的根目录 → id。
+ *
+ * **不要假设 Chrome 的根 id 一定是 "1"/"2"/"3"**：老 profile、从别的浏览器
+ * 导入过的 profile、以及某些 Chromium 分支都可能给出别的 id。这里直接拿
+ * 浏览器返回的根节点按类型建表，建树时再按类型取 id。缺某个类型（比如
+ * Chrome 没有「移动设备书签」）时表里就没有那一项。
+ */
+export function buildRootIdMap(roots: BookmarkInfo[] | undefined): Map<RootBookmarksType, string> {
+    const map = new Map<RootBookmarksType, string>()
+    for (const node of roots ?? []) {
+        const type = rootTypeOf(node)
+        if (type && node.id && !map.has(type)) {
+            map.set(type, node.id)
+        }
+    }
+    return map
+}
+
+/**
+ * 根分类在目标浏览器里能落到哪个根目录。
+ * Chrome/Edge 没有「书签菜单」，菜单归到「其他书签」；其余分类要求同名根目录。
+ */
+export function resolveRootId(type: RootBookmarksType, rootIds: Map<RootBookmarksType, string>): string | undefined {
+    const direct = rootIds.get(type)
+    if (direct) {
+        return direct
+    }
+    if (type === RootBookmarksType.MenuFolder) {
+        return rootIds.get(RootBookmarksType.UnfiledFolder)
+    }
+    return undefined
+}
+
 /** 根目录文件夹的中文展示名。注意：枚举值本身是已存 gist 的在线格式，不能改。 */
 export const ROOT_FOLDER_LABELS: Record<string, string> = {
     [RootBookmarksType.ToolbarFolder]: '书签栏',

@@ -2,8 +2,8 @@ import BookmarkService from '../utils/services'
 import { HTTPError } from 'ky'
 import { Setting, activeCredentials, providerInfo, providerId, isValidToken, isValidSnippetId, uploadTargets, PROVIDERS, ProviderId } from '../utils/setting'
 import iconLogo from '../assets/icon.png'
-import { OperType, BookmarkInfo, SyncDataInfo, RootBookmarksType, BrowserType } from '../utils/models'
-import { detectBrowserType, displayFolderName, formatBookmarks, getBookmarkCount, normalizeRootTitles, rootTypeOf } from '../utils/bookmarks'
+import { OperType, BookmarkInfo, SyncDataInfo, RootBookmarksType } from '../utils/models'
+import { buildRootIdMap, displayFolderName, formatBookmarks, getBookmarkCount, normalizeRootTitles, resolveRootId, rootTypeOf } from '../utils/bookmarks'
 import { diffBookmarks } from '../utils/diff'
 import { OperResult } from '../utils/messages'
 import { Bookmarks } from 'wxt/browser'
@@ -11,7 +11,8 @@ import { Bookmarks } from 'wxt/browser'
 export default defineBackground(() => {
 
   let curOperType = OperType.NONE
-  let curBrowserType = BrowserType.CHROME
+  /** 当前浏览器实际存在的根目录：类型 → 浏览器给的 id。由 getBookmarks() 刷新 */
+  let rootIdByType = new Map<RootBookmarksType, string>()
 
   // 角标状态
   const ICON_SYNCED = "✓"
@@ -281,10 +282,10 @@ export default defineBackground(() => {
     // 老 Gist / 老导出文件里的根标题可能是本地化名称，先统一成在线格式标识名。
     // 识别本身交给 rootTypeOf，但归一化后后续的对比、再次导出也都是标准格式。
     normalizeRootTitles(bookmarks)
-    const localTree = await getBookmarks()   // 刷新 curBrowserType，建树时需要
-    // 建树只能把书签放进浏览器已有的根目录。Chrome/Edge 未必有「移动设备书签」（id "3"），
+    await getBookmarks()   // 刷新根目录表，建树时需要
+    // 建树只能把书签放进浏览器已有的根目录。Chrome/Edge 未必有「移动设备书签」，
     // 缺了它 create 会失败、整棵子树被丢掉，而本地这时已经被清空 —— 所以先拦下来再动手。
-    const lost = findUnplaceableRoots(bookmarks, new Set((localTree[0]?.children ?? []).map(c => c.id)))
+    const lost = findUnplaceableRoots(bookmarks, rootIdByType)
     if (lost.length > 0) {
       const detail = lost.map(l => `${l.name}（${l.count} 条）`).join('、')
       throw new Error(`当前浏览器缺少这些根目录：${detail}，继续会丢掉它们，已取消。可以改用「上传」以本地覆盖远端`)
@@ -337,7 +338,7 @@ export default defineBackground(() => {
 
   async function getBookmarks(): Promise<BookmarkInfo[]> {
     const bookmarkTree: BookmarkInfo[] = await browser.bookmarks.getTree()
-    curBrowserType = detectBrowserType(bookmarkTree)
+    rootIdByType = buildRootIdMap(bookmarkTree[0]?.children)
     return bookmarkTree
   }
 
@@ -359,44 +360,27 @@ export default defineBackground(() => {
 
   /**
    * 根分类 → 当前浏览器对应的根目录 id。
-   * 识别统一交给 rootTypeOf：它同时认枚举名、Chrome 的 folderType、以及
-   * 老版本 / 本地化浏览器写下的「书签栏」「其他书签」等标题。
-   * 菜单与「其他」在 Chrome 系下合并到 "2"；返回 undefined 表示不是根分类。
+   * 识别统一交给 rootTypeOf；目标 id 从浏览器实际返回的根节点表里查，
+   * 不硬编码 Chrome 的 "1"/"2"/"3"（老 profile 或 Chromium 分支未必是这几个值）。
+   * 返回 undefined 表示不是根分类，或当前浏览器没有对应根目录。
    */
   function rootParentId(node: BookmarkInfo): string | undefined {
     const type = rootTypeOf(node)
-    if (!type) {
-      return undefined
-    }
-    if (curBrowserType == BrowserType.FIREFOX) {
-      switch (type) {
-        case RootBookmarksType.MenuFolder: return "menu________"
-        case RootBookmarksType.MobileFolder: return "mobile______"
-        case RootBookmarksType.ToolbarFolder: return "toolbar_____"
-        case RootBookmarksType.UnfiledFolder: return "unfiled_____"
-      }
-      return undefined
-    }
-    switch (type) {
-      case RootBookmarksType.MobileFolder: return "3"
-      case RootBookmarksType.ToolbarFolder: return "1"
-      case RootBookmarksType.UnfiledFolder:
-      case RootBookmarksType.MenuFolder: return "2"
-    }
-    return undefined
+    return type ? resolveRootId(type, rootIdByType) : undefined
   }
 
   /**
    * 远端里有内容、但当前浏览器没有对应根目录的分类。
    * 这些子树下载时无处安放（create 报 "Can't find parent bookmark for id." 后只能丢弃），
-   * 空分类不算数 —— 没有内容就没有损失。
+   * 空分类不算数 —— 没有内容就没有损失。菜单在缺少「书签菜单」的浏览器里
+   * 由 resolveRootId 合并到「其他书签」，所以不会误报。
    */
-  function findUnplaceableRoots(remoteRoots: BookmarkInfo[] | undefined, localRootIds: Set<string | undefined>): { name: string, count: number }[] {
+  function findUnplaceableRoots(remoteRoots: BookmarkInfo[] | undefined, rootIds: Map<RootBookmarksType, string>): { name: string, count: number }[] {
     const lost: { name: string, count: number }[] = []
     for (const node of remoteRoots ?? []) {
-      const parentId = rootParentId(node)
+      const type = rootTypeOf(node)
       const count = getBookmarkCount(node.children)
-      if (parentId && !localRootIds.has(parentId) && count > 0) {
+      if (type && !resolveRootId(type, rootIds) && count > 0) {
         lost.push({ name: displayFolderName(node.title), count })
       }
     }
