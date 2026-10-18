@@ -1,0 +1,100 @@
+:root {
+    color-scheme: light dark;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #f6f7f9;
+    color: #1f2328;
+}
+
+.import-page {
+    width: min(560px, calc(100vw - 48px));
+    padding: 32px;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 8px 28px rgb(0 0 0 / 10%);
+}
+
+h1 {
+    margin: 0 0 16px;
+    font-size: 22px;
+}
+
+.lead {
+    margin: 0 0 16px;
+    font-size: 15px;
+    line-height: 1.7;
+}
+
+.warning {
+    margin: 0 0 20px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #fff4e5;
+    color: #8a4b00;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.pick-button {
+    appearance: none;
+    border: 0;
+    border-radius: 8px;
+    padding: 11px 18px;
+    background: #0d6efd;
+    color: #fff;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.pick-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.status {
+    min-height: 1.5em;
+    margin: 16px 0 0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.status.ok {
+    color: #157347;
+}
+
+.status.error {
+    color: #b42318;
+}
+
+.hint {
+    margin: 20px 0 0;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #16181d;
+        color: #e6e8eb;
+    }
+
+    .import-page {
+        background: #20242b;
+        box-shadow: 0 8px 28px rgb(0 0 0 / 45%);
+    }
+
+    .warning {
+        background: #3a2a12;
+        color: #ffcf8a;
+    }
+
+    .hint {
+        color: #9aa4b2;
+    }
+}

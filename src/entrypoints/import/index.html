@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>导入本地书签 - Bookmarks 2 Hub</title>
+  </head>
+  <body>
+    <main class="import-page">
+      <h1>导入本地书签</h1>
+      <p class="lead">
+        选择本扩展导出的 JSON 文件，用文件里的书签整树覆盖当前浏览器书签。
+      </p>
+      <p class="warning">
+        这会清空本地全部书签，再用文件里的内容重建，操作不可撤销。建议先在弹窗里「导出本地书签」留一份备份。
+      </p>
+      <button id="pick" type="button" class="pick-button">选择 JSON 文件并导入</button>
+      <p id="status" class="status" role="status"></p>
+      <p class="hint">远端代码片段里的数据不受影响。</p>
+    </main>
+    <script type="module" src="./import.ts"></script>
+  </body>
+</html>

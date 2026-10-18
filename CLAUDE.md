@@ -73,7 +73,7 @@ rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
 
 - **WXT** 负责生成 manifest 和整个构建流程
 - `wxt.config.ts` 定义扩展 API、权限、manifest 字段，以及 `zip.excludeSources`
-- 入口位于 `src/entrypoints/`：`background.ts`、`popup/`、`options/`、`manager/`（书签预览页，产出 `manager.html`）
+- 入口位于 `src/entrypoints/`：`background.ts`、`popup/`、`options/`、`manager/`（书签预览页，产出 `manager.html`）、`import/`（Firefox 用的导入页，产出 `import.html`）
 
 ### 后台服务（`src/entrypoints/background.ts`）
 
@@ -95,7 +95,7 @@ rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
 这三样东西是同一条链路，用的是**同一种数据**：文件内容就是上传到代码片段的那份 `SyncDataInfo`（根分类是 `RootBookmarksType` 的标识名，节点只有 `title`/`url`/`children`），所以「导出 → 在预览页里改 → 导入回浏览器」能闭环，导出的文件也能直接贴进片段里。全程不碰网络。
 
 - **导出**：弹窗次要入口，`formatBookmarks` + `buildSyncData` + `downloadJson`，文件名 `BookmarkHub-<时间戳>.json`
-- **导入**：弹窗次要入口，位置在导出与清空之间。**文件必须在弹窗里读**（service worker 里没有 FileReader，也没有用户手势），解析成功后先弹确认框写明「会覆盖现在的数据」，用户确认了才把书签数组发给后台的 `import`
+- **导入**：弹窗次要入口，位置在导出与清空之间。**文件必须在有 DOM 的页面里读**（service worker 里没有 FileReader，也没有用户手势），解析成功后先弹确认框写明「会覆盖现在的数据」，用户确认了才把书签数组发给后台的 `import`。Chrome 在弹窗里完成；**Firefox 的 browserAction 弹窗一打开原生文件选择框就会失去焦点并关闭**，选完文件后页面已经销毁，所以 Firefox 的导入按钮改为打开 `import.html` 独立标签页，由那个页面读文件并确认。不要把这个分支改回弹窗，否则 Firefox 上会表现为「选完文件没反应」。
 - **`pickJsonFile()` 在用户取消时也必须 resolve**：调用方在 await 之前就点亮了加载态，promise 悬着不决就是按钮一直转、整排次要操作卡死（1.7.0 实际踩过，1.7.1 修）。取消信号有两路，都要留着 —— `cancel` 事件（Chrome 113+ / Firefox 109+）加上「窗口重新拿到焦点却没有选中文件」兜底（延后 400ms 再看 `input.files`，因为 focus 可能比 change 先到）
 - **`import` 不写 `remoteCount`**：那个数代表「下载与对比那一侧」的数量，从本地文件导入与远端无关。除此之外它和 `download` 完全同路（`restoreBookmarks`），根目录缺失检查也一样
 - **书签预览页**（`src/entrypoints/manager/`，页脚「书签预览」在新标签页打开 `manager.html`）：只读写文件内容，**绝不碰浏览器真实书签** —— 覆盖本地这一步永远只发生在弹窗的「导入本地书签」里，确认框也在那儿。页面自己的「导入/导出」只是换文件

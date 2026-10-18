@@ -61,6 +61,8 @@
 
 > Firefox Release 会拒绝未签名的 xpi，「从文件安装附加组件」提示「该附加组件似乎已损坏」是**签名检查**，不是压缩包坏了；临时载入可以绕过。1.9.1 起 firefox 包带固定附加组件 ID，设置会真正写入 `storage.sync`，重启浏览器后重新临时载入，之前填的令牌和片段 ID 仍然在（已在本机 Firefox 158 实测）。
 >
+> Firefox 的「导入本地书签」会打开一个新标签页。Firefox 的 browserAction 弹窗一旦打开原生文件选择框就会失去焦点并关闭，选完文件后弹窗里的代码已经不在了，所以导入必须在普通标签页里完成（1.9.4 起）。
+>
 > 想永久安装、不用每次重启再载入：把 firefox 包提交到 [addons.mozilla.org](https://addons.mozilla.org/developers/) 选择「unlisted / 自己分发」签名（免费），安装签名后的 xpi；或者改用 Firefox Developer Edition / Nightly，并在 `about:config` 里把 `xpinstall.signatures.required` 设为 `false`。Release 版会忽略这个开关。
 
 > 各应用商店里上架的 BookmarkHub 是原作者 dudor 的上游版本，**不包含**本项目的改动（Gitee、对比、中文界面等）。

@@ -27,6 +27,12 @@ type Tab = 'sync' | 'settings'
 /** 当前安装版本；manifest 的 version 由 package.json 生成 */
 const VERSION = browser.runtime.getManifest().version
 
+/**
+ * Firefox 的 browserAction 弹窗在打开原生文件选择框时会因失去焦点而关闭，
+ * 文件选完后弹窗里的 JS 已经不在了。Firefox 下的导入改成独立标签页。
+ */
+const IS_FIREFOX = navigator.userAgent.includes('Firefox/')
+
 interface ConfirmSpec {
     action: Action
     title: string
@@ -160,6 +166,11 @@ const Popup: React.FC = () => {
      */
     const runImport = async () => {
         setAlertMsg(null)
+        if (IS_FIREFOX) {
+            // 弹窗里打开文件选择框会关掉弹窗，改到普通标签页里完成
+            browser.tabs.create({ url: browser.runtime.getURL('/import.html') })
+            return
+        }
         setImporting(true)
         try {
             const picked = await pickJsonFile()
@@ -416,7 +427,9 @@ const Popup: React.FC = () => {
                                 {exporting ? <Spinner animation="border" size="sm" /> : <AiOutlineExport />}导出本地书签
                             </button>
                             <button type="button" className="minor-link" disabled={!!busy || exporting || importing} onClick={runImport}
-                                title="读一个导出的 JSON 文件，整树覆盖当前本地书签（会覆盖现在的数据）">
+                                title={IS_FIREFOX
+                                    ? '在新标签页里选择导出的 JSON 文件，整树覆盖当前本地书签（Firefox 弹窗打开文件框会关闭，所以用标签页）'
+                                    : '读一个导出的 JSON 文件，整树覆盖当前本地书签（会覆盖现在的数据）'}>
                                 {importing ? <Spinner animation="border" size="sm" /> : spin('import', <AiOutlineImport />)}导入本地书签
                             </button>
                             <button type="button" className="minor-link danger-link" disabled={!!busy} onClick={confirmRemoveAll}

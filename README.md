@@ -62,6 +62,8 @@ Packages are on [GitHub Releases](https://github.com/yc-2018/BookmarkHub/release
 
 > Firefox Release rejects unsigned xpi files, so *Install Add-on From File* reports "this add-on appears to be corrupt". That is the signature check, not a damaged package; temporary loading bypasses it. Since 1.9.1 the Firefox build has a fixed add-on ID, so settings are actually written to `storage.sync` and survive a browser restart + temporary reload (tested on Firefox 158).
 >
+> In Firefox, *导入本地书签* opens a new tab. Opening the native file picker from a browserAction popup makes Firefox close the popup, destroying the page before the selected file can be read; the import therefore runs on a normal tab (since 1.9.4).
+>
 > To install permanently: submit the firefox zip to [addons.mozilla.org](https://addons.mozilla.org/developers/) and choose unlisted/self-distributed signing (free), then install the signed xpi; or use Firefox Developer Edition / Nightly and set `xpinstall.signatures.required` to `false` in `about:config`. Release builds ignore that pref.
 
 > The BookmarkHub listed in the browser stores is the upstream version by dudor and **does not** include this fork's changes.
