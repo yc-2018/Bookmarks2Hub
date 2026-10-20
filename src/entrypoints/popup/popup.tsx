@@ -447,7 +447,7 @@ const Popup: React.FC = () => {
 
             <div className="bh-foot">
                 <span className="bh-foot-links">
-                    <a href="https://github.com/yc-2018/BookmarkHub" target="_blank" rel="noreferrer">使用帮助</a>
+                    <a href="https://www.bilibili.com/video/BV1vVn56pEx8/?p=4&" target="_blank" rel="noreferrer">使用帮助</a>
                     <button type="button" className="foot-link" disabled={checkingUpdate} onClick={runUpdateCheck}
                         title={'当前版本 v' + VERSION + '，点击到 GitHub Releases 查询是否有新版本'}>
                         {checkingUpdate ? '检查中…' : '检查更新'}
@@ -457,7 +457,7 @@ const Popup: React.FC = () => {
                         书签预览
                     </button>
                 </span>
-                <a href="https://github.com/yc-2018/BookmarkHub" target="_blank" rel="noreferrer" title="开发者">
+                <a href="https://github.com/yc-2018/Bookmarks2Hub" target="_blank" rel="noreferrer" title="开发者">
                     <AiOutlineGithub />yc-2018
                 </a>
             </div>

@@ -6,10 +6,10 @@
  * service worker 空闲即终止、项目也没申请 alarms 权限，不要改成后台定时查。
  */
 
-/** 发行页。仓库沿用旧名 BookmarkHub，改名时不要动这个地址 */
-export const RELEASES_PAGE = 'https://github.com/yc-2018/BookmarkHub/releases'
+/** 发行页。仓库已改名为 Bookmarks2Hub（旧地址会 301 重定向，但仍写新地址） */
+export const RELEASES_PAGE = 'https://github.com/yc-2018/Bookmarks2Hub/releases'
 /** releases/latest 只返回正式版，不含预发布和草稿 */
-const LATEST_API = 'https://api.github.com/repos/yc-2018/BookmarkHub/releases/latest'
+const LATEST_API = 'https://api.github.com/repos/yc-2018/Bookmarks2Hub/releases/latest'
 
 export interface UpdateInfo {
     /** 当前安装的版本，即 manifest.version */

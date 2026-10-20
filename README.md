@@ -1,7 +1,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
-  <a href="https://github.com/yc-2018/BookmarkHub">
+  <a href="https://github.com/yc-2018/Bookmarks2Hub">
     <img src="images/icon128.png" alt="BookmarkHub" >
   </a>
 
@@ -11,9 +11,9 @@
     <br />
     <small>A fork of <a href="https://github.com/dudor/BookmarkHub">dudor/BookmarkHub</a></small>
     <br />
-    <a href="https://github.com/yc-2018/BookmarkHub/releases">Download</a>
+    <a href="https://github.com/yc-2018/Bookmarks2Hub/releases">Download</a>
     ·
-    <a href="https://github.com/yc-2018/BookmarkHub/issues">Issues</a>
+    <a href="https://github.com/yc-2018/Bookmarks2Hub/issues">Issues</a>
     ·
     <a href="/README_cn.md">简体中文</a>
   </p>
@@ -42,7 +42,7 @@ A browser extension. One click uploads your local bookmarks to a remote store; o
 
 ## Installation
 
-Packages are on [GitHub Releases](https://github.com/yc-2018/BookmarkHub/releases):
+Packages are on [GitHub Releases](https://github.com/yc-2018/Bookmarks2Hub/releases):
 
 | File | For |
 |---|---|

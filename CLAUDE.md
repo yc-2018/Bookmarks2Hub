@@ -6,7 +6,7 @@
 
 产品名是 **Bookmarks 2 Hub**（manifest 显示名、弹窗品牌栏、设置页标题、README 标题），一个跨浏览器扩展，以 GitHub Gist 或 Gitee 代码片段作为存储，在 Chrome、Firefox、Edge 之间同步书签。技术栈为 WXT + React + TypeScript。
 
-三样东西沿用旧名 **BookmarkHub**，改名时不要动：仓库名 `yc-2018/BookmarkHub`；`package.json` 的 `name: "bookmarkhub"`（发行包文件名 `bookmarkhub-<版本>-*.zip` 和 CI 工作流的通配符由它派生）；默认文件名 `BookmarkHub`（已有用户的 Gist 里就是这个名字，改了会读不到）。
+仓库已改名为 `yc-2018/Bookmarks2Hub`（旧地址 `yc-2018/BookmarkHub` 会 301 到新地址，代码里一律写新地址）。还有两样东西沿用旧名 **BookmarkHub**，改名时不要动：`package.json` 的 `name: "bookmarkhub"`（发行包文件名 `bookmarkhub-<版本>-*.zip` 和 CI 工作流的通配符由它派生）；默认文件名 `BookmarkHub`（已有用户的 Gist 里就是这个名字，改了会读不到）。
 
 同步是**纯手动**的：上传、下载、对比都由用户在弹窗里主动触发。早期版本的自动同步已移除 —— MV3 的 service worker 空闲即终止，`setInterval` 随之消失，而项目并未申请 `alarms` 权限，该机制实际不可靠。不要重新引入基于定时器的后台同步。
 
@@ -52,8 +52,8 @@ git push origin main --follow-tags
 
 # 5. 确认发布成功，不要假定
 #    本机没有 gh CLI，用 curl 查 API
-curl -s "https://api.github.com/repos/yc-2018/BookmarkHub/actions/runs?per_page=1"
-curl -s "https://api.github.com/repos/yc-2018/BookmarkHub/releases/tags/v<版本>"
+curl -s "https://api.github.com/repos/yc-2018/Bookmarks2Hub/actions/runs?per_page=1"
+curl -s "https://api.github.com/repos/yc-2018/Bookmarks2Hub/releases/tags/v<版本>"
 
 # 6. 重新生成本地包（先删旧的，否则会留下版本号对不上的陈旧 zip）
 rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
@@ -226,7 +226,7 @@ rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
 - **CDP 模拟事件必须贴近真实**：按 `input` → `change` 顺序派发；且 React 对单选框/复选框的 `onChange` 实际绑定在 `click` 上，只派发 `change` 不会触发它。验证交互优先用 `Input.dispatchMouseEvent` 真实点击。多个同类元素（比如两个平台各有一个指引入口）要用「取可见的那个」而非 `querySelector`
 - 弹窗页脚有「检查更新」和「书签预览」，页脚是同步/设置两个标签页共用的，放这里不会撑高 586px 的设置页
 - **书签预览页不受弹窗那套约束**：它是独立标签页，自带 `manager.css`（没有 Bootstrap，react-icons 之外不依赖 UI 库），布局照 Chrome 书签管理器做 —— 顶栏 + 左侧目录树 + 右侧列表，空状态是一个超大的导入入口（21px 字、可拖文件进去）。确认类操作用页面原生 `window.confirm` 就行，它不是弹窗，没有 600px 高度上限
-- 「检查更新」**纯手动点击**：拉 `api.github.com/repos/yc-2018/BookmarkHub/releases/latest`（现有 `*.github.com` host 权限已覆盖 api 子域，不用加权限；匿名每小时 60 次，手动点足够），与 `browser.runtime.getManifest().version` 比对，结果复用顶部提示条，有新版时附「去更新」链接到该版本的发行页。扩展是 zip + 加载已解压分发，浏览器不会替它自动更新，所以只能提示用户去下载覆盖安装；不要改成后台定时检查，理由同自动同步
+- 「检查更新」**纯手动点击**：拉 `api.github.com/repos/yc-2018/Bookmarks2Hub/releases/latest`（现有 `*.github.com` host 权限已覆盖 api 子域，不用加权限；匿名每小时 60 次，手动点足够），与 `browser.runtime.getManifest().version` 比对，结果复用顶部提示条，有新版时附「去更新」链接到该版本的发行页。扩展是 zip + 加载已解压分发，浏览器不会替它自动更新，所以只能提示用户去下载覆盖安装；不要改成后台定时检查，理由同自动同步
 
 ## 其他注意事项
 

@@ -1,7 +1,7 @@
 <!-- PROJECT LOGO -->
 <br />
 <p align="center">
-  <a href="https://github.com/yc-2018/BookmarkHub">
+  <a href="https://github.com/yc-2018/Bookmarks2Hub">
     <img src="images/icon128.png" alt="BookmarkHub" >
   </a>
 
@@ -11,9 +11,9 @@
     <br />
     <small>基于 <a href="https://github.com/dudor/BookmarkHub">dudor/BookmarkHub</a> 二次开发</small>
     <br />
-    <a href="https://github.com/yc-2018/BookmarkHub/releases">下载</a>
+    <a href="https://github.com/yc-2018/Bookmarks2Hub/releases">下载</a>
     ·
-    <a href="https://github.com/yc-2018/BookmarkHub/issues">反馈问题</a>
+    <a href="https://github.com/yc-2018/Bookmarks2Hub/issues">反馈问题</a>
     ·
     <a href="/README.md">English</a>
   </p>
@@ -41,7 +41,7 @@
 
 ## 安装
 
-发行包在 [GitHub Releases](https://github.com/yc-2018/BookmarkHub/releases)，每个版本有三个文件：
+发行包在 [GitHub Releases](https://github.com/yc-2018/Bookmarks2Hub/releases)，每个版本有三个文件：
 
 | 文件 | 用途 |
 |---|---|
