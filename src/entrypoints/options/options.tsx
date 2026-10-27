@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './options.css'
-import { SettingsForm } from '../../components/SettingsForm'
+import { SettingsForm } from '@/components/SettingsForm'
 
 /**
  * 独立设置页。主要入口是弹窗里的「设置」标签页，这里保留是为了

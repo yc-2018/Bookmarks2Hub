@@ -1,16 +1,18 @@
-import BookmarkService from '../utils/services'
+import BookmarkService from '@/utils/services'
 import { HTTPError } from 'ky'
-import { Setting, activeCredentials, providerInfo, providerId, isValidToken, isValidSnippetId, uploadTargets, PROVIDERS, ProviderId } from '../utils/setting'
-import iconLogo from '../assets/icon.png'
-import { OperType, BookmarkInfo, SyncDataInfo, RootBookmarksType } from '../utils/models'
-import { buildRootIdMap, displayFolderName, formatBookmarks, getBookmarkCount, normalizeRootTitles, resolveRootId, rootTypeOf } from '../utils/bookmarks'
-import { diffBookmarks } from '../utils/diff'
-import { OperResult } from '../utils/messages'
+import { Setting, activeCredentials, providerInfo, providerId, isValidToken, isValidSnippetId, uploadTargets, PROVIDERS, ProviderId } from '@/utils/setting'
+import iconLogo from '@/assets/icon.png'
+import { OperType, BookmarkInfo, SyncDataInfo, RootBookmarksType } from '@/utils/models'
+import { buildRootIdMap, displayFolderName, formatBookmarks, getBookmarkCount, normalizeRootTitles, resolveRootId, rootTypeOf } from '@/utils/bookmarks'
+import { diffBookmarks } from '@/utils/diff'
+import { OperResult } from '@/utils/messages'
 import { Bookmarks } from 'wxt/browser'
 
 export default defineBackground(() => {
 
   let curOperType = OperType.NONE
+  /** 操作进行中用户是否又改过书签：若有，结束时的角标不能报「已同步」 */
+  let pendingLocalChange = false
   /** 当前浏览器实际存在的根目录：类型 → 浏览器给的 id。由 getBookmarks() 刷新 */
   let rootIdByType = new Map<RootBookmarksType, string>()
 
@@ -59,10 +61,19 @@ export default defineBackground(() => {
    */
   async function runExclusive(operType: OperType, fn: () => Promise<OperResult>): Promise<OperResult> {
     curOperType = operType
+    pendingLocalChange = false
     setBadge(ICON_SYNCING, "#0D6EFD")
     try {
       const result = await fn()
-      setBadge(result.ok ? ICON_SYNCED : ICON_ERROR, result.ok ? "#00AA00" : "#FF0000")
+      // 操作期间用户自己也动过书签时，写进远端的只是动手前的快照，
+      // 角标不能盖成「已同步」，否则那个改动会一直被误认为已备份
+      if (!result.ok) {
+        setBadge(ICON_ERROR, "#FF0000")
+      } else if (pendingLocalChange) {
+        setBadge(ICON_NOT_SYNCED, "#FFA500")
+      } else {
+        setBadge(ICON_SYNCED, "#00AA00")
+      }
       return result
     } finally {
       curOperType = OperType.NONE
@@ -77,6 +88,9 @@ export default defineBackground(() => {
 
   function markLocalChanged(countChanged: boolean) {
     if (curOperType !== OperType.NONE) {
+      // 操作自己写书签也会触发这些事件（靠 curOperType 排除），
+      // 能走到这里的都是操作期间用户自己的改动，记下来别让结果角标盖掉它
+      pendingLocalChange = true
       return
     }
     setBadge(ICON_NOT_SYNCED, "#FFA500")
@@ -85,11 +99,14 @@ export default defineBackground(() => {
     }
   }
 
-  function setBadge(text: string, color: string) {
+  /** color 省略表示只清空文字，不动底色 */
+  function setBadge(text: string, color?: string) {
     // 角标只是提示，任何失败都不该影响同步本身
     try {
       actionApi?.setBadgeText({ text })
-      actionApi?.setBadgeBackgroundColor({ color })
+      if (color) {
+        actionApi?.setBadgeBackgroundColor({ color })
+      }
     } catch (e) {
       console.warn('设置角标失败', e)
     }
@@ -311,6 +328,7 @@ export default defineBackground(() => {
 
   /** 拉取远端书签并与本地比对，不改动任何数据 */
   async function compareBookmarks(): Promise<OperResult> {
+    setBadge(ICON_SYNCING, "#0D6EFD")
     try {
       const setting = await requireGistConfig()
       const gist = await BookmarkService.get()
@@ -328,10 +346,19 @@ export default defineBackground(() => {
         version: syncdata.version,
       })
       await browser.storage.local.set({ remoteCount: diff.remoteCount })
+      // 对比是唯一能确定「两边是否真一致」的判定，结果直接反映到角标上：
+      // 完全一致就没有需要提醒的状态，清空角标；有差异则按未同步提示。
+      // 只靠书签事件判断会漏掉远端的变化（比如别人改了片段）。
+      if (diff.identical) {
+        setBadge('')
+      } else {
+        setBadge(ICON_NOT_SYNCED, "#FFA500")
+      }
       return { ok: true, diff, remoteBookmarks: syncdata.bookmarks }
     }
     catch (error: any) {
       console.error(error)
+      setBadge(ICON_ERROR, "#FF0000")
       return { ok: false, error: await describeError(error) }
     }
   }

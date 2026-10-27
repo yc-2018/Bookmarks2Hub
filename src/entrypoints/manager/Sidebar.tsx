@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { AiOutlineDown, AiOutlineFolder, AiOutlineRight, AiOutlineStar } from 'react-icons/ai'
 import { Node, contains, label } from './tree'
 import { DRAG_TYPE, DropWhere, dragPill } from './ListPane'
-import { getBookmarkCount } from '../../utils/bookmarks'
+import { getBookmarkCount } from '@/utils/bookmarks'
 
 interface Props {
     roots: Node[]

@@ -38,7 +38,7 @@ A browser extension. One click uploads your local bookmarks to a remote store; o
 - **Compare before you sync**: fetches the remote tree, diffs it against local bookmarks, and groups the differences (local-only, remote-only, moved, retitled, reordered, folder changes) so you can choose the direction with full information
 - **Confirmation for every destructive step**: upload, download and clear each show a dialog spelling out what will be overwritten
 - Settings live inside the popup; a first launch opens straight into configuration
-- Local and remote bookmark counts; a `!` badge appears when local changes have not been synced
+- Local and remote bookmark counts; the toolbar badge shows `!` when local and remote differ, `✓` after a sync, `↻` while an operation runs and `✗` on errors. Comparing refreshes it: when both sides are identical the badge is cleared and nothing is shown
 
 ## Installation
 

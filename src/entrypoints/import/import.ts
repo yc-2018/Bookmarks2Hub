@@ -1,8 +1,8 @@
 import { browser } from 'wxt/browser'
-import { BookmarkInfo } from '../../utils/models'
-import { getBookmarkCount } from '../../utils/bookmarks'
-import { parseBookmarkFile, pickJsonFile } from '../../utils/bookmarkFile'
-import { sendOper } from '../../utils/messages'
+import { BookmarkInfo } from '@/utils/models'
+import { getBookmarkCount } from '@/utils/bookmarks'
+import { parseBookmarkFile, pickJsonFile } from '@/utils/bookmarkFile'
+import { sendOper } from '@/utils/messages'
 import './import.css'
 
 /**

@@ -6,8 +6,8 @@ import {
     AiOutlineSearch, AiOutlineSortAscending, AiOutlineStar
 } from 'react-icons/ai'
 import './manager.css'
-import { getBookmarkCount } from '../../utils/bookmarks'
-import { buildSyncData, downloadJson, fileStamp, parseBookmarkFile, pickJsonFile } from '../../utils/bookmarkFile'
+import { getBookmarkCount } from '@/utils/bookmarks'
+import { buildSyncData, downloadJson, fileStamp, parseBookmarkFile, pickJsonFile } from '@/utils/bookmarkFile'
 import {
     Node, collectUrls, contains, defaultFolder, label, locate, nextUid, pathTo, reuid,
     search, sortByName, toNodes, toPlain

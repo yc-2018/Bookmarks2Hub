@@ -11,15 +11,15 @@ import {
 } from 'react-icons/ai'
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './popup.css'
-import { BookmarkInfo } from '../../utils/models'
-import { formatBookmarks, getBookmarkCount } from '../../utils/bookmarks'
-import { buildSyncData, downloadJson, fileStamp, parseBookmarkFile, pickJsonFile } from '../../utils/bookmarkFile'
-import { DiffResult } from '../../utils/diff'
-import { OperName, sendOper } from '../../utils/messages'
-import { Setting, isConfigured, providerId, providerInfo, uploadTargets, PROVIDERS } from '../../utils/setting'
+import { BookmarkInfo } from '@/utils/models'
+import { formatBookmarks, getBookmarkCount } from '@/utils/bookmarks'
+import { buildSyncData, downloadJson, fileStamp, parseBookmarkFile, pickJsonFile } from '@/utils/bookmarkFile'
+import { DiffResult } from '@/utils/diff'
+import { OperName, sendOper } from '@/utils/messages'
+import { Setting, isConfigured, providerId, providerInfo, uploadTargets, PROVIDERS } from '@/utils/setting'
 import { DiffPanel } from './DiffPanel'
-import { SettingsForm } from '../../components/SettingsForm'
-import { checkForUpdate } from '../../utils/update'
+import { SettingsForm } from '@/components/SettingsForm'
+import { checkForUpdate } from '@/utils/update'
 
 type Action = 'upload' | 'download' | 'removeAll' | 'import'
 type Tab = 'sync' | 'settings'
@@ -78,8 +78,8 @@ const Popup: React.FC = () => {
                 first = false
             })
             .catch(() => { setConfigured(false); if (first) { setTab('settings'); first = false } })
-        read()
-        const onStorage = (_c: unknown, area: string) => { if (area === 'sync') read() }
+        void read()
+        const onStorage = (_c: unknown, area: string) => { if (area === 'sync') void read() }
         browser.storage.onChanged.addListener(onStorage)
         return () => browser.storage.onChanged.removeListener(onStorage)
     }, [])
@@ -93,7 +93,7 @@ const Popup: React.FC = () => {
         setRemoteCount(typeof rc === 'number' ? rc : null)
     }, [])
 
-    useEffect(() => { refreshCounts() }, [refreshCounts])
+    useEffect(() => { void refreshCounts() }, [refreshCounts])
 
     const openConfirm = (spec: ConfirmSpec) => {
         setAlertMsg(null)
@@ -168,7 +168,7 @@ const Popup: React.FC = () => {
         setAlertMsg(null)
         if (IS_FIREFOX) {
             // 弹窗里打开文件选择框会关掉弹窗，改到普通标签页里完成
-            browser.tabs.create({ url: browser.runtime.getURL('/import.html') })
+            await browser.tabs.create({ url: browser.runtime.getURL('/import.html') })
             return
         }
         setImporting(true)
@@ -208,7 +208,7 @@ const Popup: React.FC = () => {
 
     /** 书签预览页：独立标签页里打开，只看 / 改导出的文件，不碰浏览器书签 */
     const openPreview = () => {
-        browser.tabs.create({ url: browser.runtime.getURL('/manager.html') })
+        void browser.tabs.create({ url: browser.runtime.getURL('/manager.html') })
     }
 
     // 手动检查更新：结果复用顶部提示条，有新版时附上发行页链接

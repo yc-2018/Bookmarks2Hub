@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Badge } from 'react-bootstrap'
 import { AiOutlineDown, AiOutlineRight } from 'react-icons/ai'
-import { DiffResult, FlatEntry, MovedEntry, OrderChangedEntry, TitleChangedEntry } from '../../utils/diff'
+import { DiffResult, FlatEntry, MovedEntry, OrderChangedEntry, TitleChangedEntry } from '@/utils/diff'
 
 const PREVIEW_LIMIT = 15
 

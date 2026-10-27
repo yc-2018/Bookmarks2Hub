@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Form, Button, InputGroup, Badge, Collapse } from 'react-bootstrap'
 import { AiOutlineGithub, AiOutlineCloud, AiOutlineQuestionCircle, AiOutlineCheck } from 'react-icons/ai'
-import optionsStorage from '../utils/optionsStorage'
-import { PROVIDERS, PROVIDER_IDS, ProviderId, TOKEN_PATTERN, SNIPPET_ID_PATTERN, Setting, bothConfigured, providerId } from '../utils/setting'
+import optionsStorage from '@/utils/optionsStorage'
+import { PROVIDERS, PROVIDER_IDS, ProviderId, TOKEN_PATTERN, SNIPPET_ID_PATTERN, Setting, bothConfigured, providerId } from '@/utils/setting'
 import './SettingsForm.css'
 
 /** 需要做格式校验与首尾空白裁剪的字段 */

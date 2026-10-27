@@ -1,5 +1,5 @@
-import { BookmarkInfo, RootBookmarksType } from '../../utils/models'
-import { displayFolderName } from '../../utils/bookmarks'
+import { BookmarkInfo, RootBookmarksType } from '@/utils/models'
+import { displayFolderName } from '@/utils/bookmarks'
 
 /**
  * 预览页的工作副本。`uid` 只用于页面内定位，导出时剥掉。
