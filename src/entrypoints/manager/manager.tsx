@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import {
     AiOutlineCheckCircle, AiOutlineClose, AiOutlineExclamationCircle, AiOutlineExport,
     AiOutlineFolderAdd, AiOutlineImport, AiOutlineInbox, AiOutlineMore, AiOutlinePlus,
-    AiOutlineSearch, AiOutlineSortAscending, AiOutlineStar
+    AiOutlineRedo, AiOutlineSearch, AiOutlineSortAscending, AiOutlineStar, AiOutlineUndo
 } from 'react-icons/ai'
 import './manager.css'
 import { getBookmarkCount } from '@/utils/bookmarks'
@@ -18,6 +18,8 @@ import { ContextMenu, MenuAction, MenuSpec } from './ContextMenu'
 import { DialogSpec, EditDialog } from './EditDialog'
 
 const VERSION = browser.runtime.getManifest().version
+/** 撤销栈的深度上限：每步存的是一整棵树，攒太多白占内存 */
+const UNDO_LIMIT = 100
 
 /**
  * 书签预览页：把「导出的 JSON 文件」当书签库来看和改，布局照着 Chrome 书签管理器。
@@ -42,11 +44,43 @@ const Manager: React.FC = () => {
     const [dragUid, setDragUid] = useState<number | null>(null)
     const [dragOver, setDragOver] = useState(false)
     const [toast, setToast] = useState<{ ok: boolean, text: string } | null>(null)
+    // 撤销/重做栈存的是「改动前的整棵树」快照。栈本身放 ref，state 只存深度用来刷按钮
+    const [stackDepth, setStackDepth] = useState({ undo: 0, redo: 0 })
+    const undoRef = useRef<Node[][]>([])
+    const redoRef = useRef<Node[][]>([])
+    // 当前树与选中项各留一份 ref：事件里连着改两次时不能拿到旧值，撤销后选中项也可能已经不在树上
+    const rootsRef = useRef<Node[] | null>(null)
+    const selectedRef = useRef<number | null>(null)
+    // 最近一次载入或导出的内容：撤销回到这里时「未导出的修改」要跟着熄灭
+    const baselineRef = useRef<Node[] | null>(null)
     const searchBox = useRef<HTMLInputElement>(null)
 
     const say = useCallback((ok: boolean, text: string) => {
         setToast({ ok, text })
         setTimeout(() => setToast(t => (t && t.text === text ? null : t)), 3500)
+    }, [])
+
+    const pickFolder = useCallback((uid: number | null) => {
+        selectedRef.current = uid
+        setSelected(uid)
+    }, [])
+
+    /** 换一棵树：ref 与 state 一起走，选中项已经不在树上时退回「全部书签」 */
+    const applyRoots = useCallback((next: Node[]) => {
+        rootsRef.current = next
+        setRoots(next)
+        if (selectedRef.current !== null && !locate(next, selectedRef.current)) {
+            pickFolder(null)
+        }
+    }, [pickFolder])
+
+    const remember = useCallback(
+        () => setStackDepth({ undo: undoRef.current.length, redo: redoRef.current.length }), [])
+
+    /** 内容与最近一次载入/导出的版本一致时，「未导出修改」不该亮着 */
+    const sameAsBaseline = useCallback((list: Node[]) => {
+        const base = baselineRef.current
+        return base !== null && JSON.stringify(toPlain(base)) === JSON.stringify(toPlain(list))
     }, [])
 
     // 改了还没导出就离开，等于白改一场
@@ -72,10 +106,15 @@ const Manager: React.FC = () => {
         try {
             const parsed = parseBookmarkFile(text)
             const tree = toNodes(parsed.bookmarks, true)
-            setRoots(tree)
+            // 换了文件，旧的撤销记录没有意义了
+            undoRef.current = []
+            redoRef.current = []
+            setStackDepth({ undo: 0, redo: 0 })
+            baselineRef.current = tree
+            applyRoots(tree)
             setFileName(name)
             // 默认落在「书签栏」而不是最外层：书签基本都在那儿
-            setSelected(defaultFolder(tree))
+            pickFolder(defaultFolder(tree))
             setExpanded(new Set(tree.map(n => n.uid)))
             setDirty(false)
             setQuery('')
@@ -84,7 +123,7 @@ const Manager: React.FC = () => {
         } catch (e) {
             say(false, e instanceof Error ? e.message : String(e))
         }
-    }, [say])
+    }, [applyRoots, pickFolder, say])
 
     const runImport = useCallback(async () => {
         if (dirty && !window.confirm('当前修改还没导出，导入新文件会丢掉这些修改。确定继续？')) {
@@ -107,6 +146,8 @@ const Manager: React.FC = () => {
         try {
             const data = buildSyncData(toPlain(roots), VERSION)
             downloadJson(`BookmarkHub-edited-${fileStamp()}.json`, JSON.stringify(data, null, 2))
+            // 导出过的那一版就是新的基准，之后撤销回这里同样算「已导出」
+            baselineRef.current = roots
             setDirty(false)
             say(true, `已导出 ${getBookmarkCount(roots)} 个书签，可在弹窗里用「导入本地书签」写回浏览器`)
         } catch (e) {
@@ -116,16 +157,74 @@ const Manager: React.FC = () => {
 
     /** 所有修改都走这里：改的是深拷贝，顺手把「有未导出修改」点亮 */
     const mutate = useCallback((fn: (draft: Node[]) => void) => {
-        setRoots(prev => {
-            if (!prev) {
-                return prev
-            }
-            const draft = structuredClone(prev)
-            fn(draft)
-            return draft
-        })
+        const prev = rootsRef.current
+        if (!prev) {
+            return
+        }
+        const draft = structuredClone(prev)
+        fn(draft)
+        undoRef.current.push(prev)
+        if (undoRef.current.length > UNDO_LIMIT) {
+            undoRef.current.shift()
+        }
+        // 有了新改动，原来的重做分支就作废了
+        redoRef.current = []
+        remember()
+        applyRoots(draft)
         setDirty(true)
-    }, [])
+    }, [applyRoots, remember])
+
+    const undo = useCallback(() => {
+        const prev = undoRef.current.pop()
+        const cur = rootsRef.current
+        if (!prev || !cur) {
+            return
+        }
+        redoRef.current.push(cur)
+        remember()
+        applyRoots(prev)
+        setDirty(!sameAsBaseline(prev))
+    }, [applyRoots, remember, sameAsBaseline])
+
+    const redo = useCallback(() => {
+        const next = redoRef.current.pop()
+        const cur = rootsRef.current
+        if (!next || !cur) {
+            return
+        }
+        undoRef.current.push(cur)
+        remember()
+        applyRoots(next)
+        setDirty(!sameAsBaseline(next))
+    }, [applyRoots, remember, sameAsBaseline])
+
+    /**
+     * Ctrl/Cmd+Z 撤销，Ctrl+Y 或 Ctrl/Cmd+Shift+Z 重做。
+     * 输入框里的 Ctrl+Z 是撤销正在敲的文字，对话框开着时也不该在看不见的列表上动手，两种都放过。
+     */
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (!(e.ctrlKey || e.metaKey) || e.altKey || dialog) {
+                return
+            }
+            const key = e.key.toLowerCase()
+            if (key !== 'z' && key !== 'y') {
+                return
+            }
+            const el = e.target as HTMLElement | null
+            if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) {
+                return
+            }
+            e.preventDefault()
+            if (key === 'y' || e.shiftKey) {
+                redo()
+            } else {
+                undo()
+            }
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [dialog, redo, undo])
 
     const dropFile = (e: React.DragEvent) => {
         e.preventDefault()
@@ -183,7 +282,7 @@ const Manager: React.FC = () => {
     const rootLevel = selected === null
 
     const openFolder = (uid: number) => {
-        setSelected(uid)
+        pickFolder(uid)
         setExpanded(prev => new Set(prev).add(uid))
         setQuery('')
     }
@@ -392,6 +491,15 @@ const Manager: React.FC = () => {
                 </div>
 
                 <div className="mg-head-right">
+                    {/* 撤销/重做：栈空就置灰，按钮本身就是快捷键的说明 */}
+                    <button type="button" className="mg-icon-btn" title="撤销（Ctrl+Z）"
+                        disabled={stackDepth.undo === 0} onClick={undo}>
+                        <AiOutlineUndo />
+                    </button>
+                    <button type="button" className="mg-icon-btn" title="重做（Ctrl+Y 或 Ctrl+Shift+Z）"
+                        disabled={stackDepth.redo === 0} onClick={redo}>
+                        <AiOutlineRedo />
+                    </button>
                     {/* 改过之后才出现：这是把修改带走的唯一出口，做得显眼些 */}
                     {dirty && (
                         <>
@@ -441,7 +549,7 @@ const Manager: React.FC = () => {
                 <Sidebar
                     roots={roots}
                     selected={selected}
-                    onSelect={uid => { setSelected(uid); setQuery('') }}
+                    onSelect={uid => { pickFolder(uid); setQuery('') }}
                     expanded={expanded}
                     onToggle={uid => setExpanded(prev => {
                         const next = new Set(prev)
@@ -461,13 +569,13 @@ const Manager: React.FC = () => {
                             <span className="mg-crumb-cur">「{query.trim()}」的搜索结果 {hits.length} 项</span>
                         ) : (
                             <>
-                                <button type="button" onClick={() => setSelected(null)}>全部书签</button>
+                                <button type="button" onClick={() => pickFolder(null)}>全部书签</button>
                                 {crumbs.map((n, i) => (
                                     <React.Fragment key={n.uid}>
                                         <span>/</span>
                                         {i === crumbs.length - 1
                                             ? <span className="mg-crumb-cur">{label(n, i === 0)}</span>
-                                            : <button type="button" onClick={() => setSelected(n.uid)}>{label(n, i === 0)}</button>}
+                                            : <button type="button" onClick={() => pickFolder(n.uid)}>{label(n, i === 0)}</button>}
                                     </React.Fragment>
                                 ))}
                             </>

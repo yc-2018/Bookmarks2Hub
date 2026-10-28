@@ -213,6 +213,14 @@ button {
     color: var(--mg-text);
 }
 
+/* 撤销/重做栈空时置灰。hover 也得一起按掉，否则看着像还能点 */
+.mg-icon-btn:disabled,
+.mg-icon-btn:disabled:hover {
+    background: none;
+    color: #c4c7ca;
+    cursor: default;
+}
+
 .mg-icon-btn svg {
     width: 1.15rem;
     height: 1.15rem;
