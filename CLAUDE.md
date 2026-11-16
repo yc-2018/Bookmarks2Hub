@@ -19,13 +19,16 @@ pnpm install                   # 安装依赖，postinstall 会自动执行 wxt 
 
 pnpm run dev                   # Chrome 开发模式（监听改动）
 pnpm run dev:firefox           # Firefox 开发模式
+pnpm run dev:edge              # Edge 开发模式
 
 pnpm run compile               # 类型检查（tsc --noEmit），提交前必跑
 pnpm run build                 # 构建 Chrome，产出 .output/chrome-mv3/
 pnpm run build:firefox         # 构建 Firefox，产出 .output/firefox-mv2/
+pnpm run build:edge            # 构建 Edge，产出 .output/edge-mv3/（不带 key）
 
 pnpm run zip                   # 打包 Chrome -> .output/bookmarkhub-<版本>-chrome.zip
 pnpm run zip:firefox           # 打包 Firefox，同时产出审核用的 sources.zip
+pnpm run zip:edge              # 打包 Edge 商店提交包 -> .output/bookmarkhub-<版本>-edge.zip（不带 key）
 ```
 
 注意 `build` 只产出未打包目录，**zip 文件来自 `zip` 命令**。
@@ -145,7 +148,7 @@ rm -f .output/*.zip && pnpm run zip && pnpm run zip:firefox
 
 ### 扩展 ID 与 manifest 的 `key` 字段
 
-`wxt.config.ts` 里的 `EXTENSION_KEY` 是一把 RSA 公钥（base64 的 SPKI DER），Chrome/Edge 构建的 manifest 带 `key` 字段；Firefox 构建不带 `key`，改用 `browser_specific_settings.gecko.id`，固定为 `bookmarks2hub@yc-2018.github.io`。这是两套独立的 ID，都**一旦发布就不能改**：Chrome 扩展 ID = SHA-256(DER 公钥) 前 16 字节、十六进制按 0-f → a-p 映射，固定为 `cagopejcnnfcecidchgcgobaaiikgkgb`；Firefox 的 gecko id 是 `storage.sync` 的分区键。改了任何一个都等于换 ID，而 `storage` 按 ID 隔离，所有用户的令牌和片段 ID 都要重填。Chrome 私钥没有保留：2026-10-09 生成后即删除，无备份，也无法从公钥反推。它只在打签名 crx 或上架商店时才用得到，而本项目只走 zip + 加载已解压 —— 构建、CI、发版、覆盖安装全都不需要它。将来若真要打 crx，只能换新钥匙，等于换 ID、全员迁移一次。
+`wxt.config.ts` 里的 `EXTENSION_KEY` 是一把 RSA 公钥（base64 的 SPKI DER），只注入 **Chrome** 构建的 manifest（本地 zip / 加载已解压用）；**Edge 商店构建必须不带 `key`**，否则 Partner Center 上传时会报 `The manifest shouldn't contain the key field`，所以 `wxt.config.ts` 只在 `env.browser === 'chrome'` 时加它。Firefox 构建也带不了 `key`，改用 `browser_specific_settings.gecko.id`，固定为 `bookmarks2hub@yc-2018.github.io`。本地 Chrome 扩展 ID = SHA-256(DER 公钥) 前 16 字节、十六进制按 0-f → a-p 映射，固定为 `cagopejcnnfcecidchgcgobaaiikgkgb`；Firefox 的 gecko id 是 `storage.sync` 的分区键。改了任何一个都等于换 ID，而 `storage` 按 ID 隔离，所有用户的令牌和片段 ID 都要重填。Chrome 私钥没有保留：2026-10-09 生成后即删除，无备份，也无法从公钥反推；商店版的 ID 由商店分配，无法沿用本地这个 ID，老用户从 zip 版切到商店版时需要重新填一次令牌和片段 ID（Gist 里的书签数据不受影响）。
 
 为什么必须有它（2026-10-09 在本机 Chrome 155 上实测，不是推断）：Chromium 把拖进 `chrome://extensions` 的 zip 当作「已解压扩展」安装，解压到 `<profile>/UnpackedExtensions/<包名>_<进程号>_<随机数>/`；没有 `key` 的已解压扩展，ID 来自**解压目录绝对路径**的哈希（`crx_file::id_util::GenerateIdForPath`，Windows 下取路径的 UTF-16LE 字节）。目录名每次都不同 → ID 每次都不同 → 每拖一次就多一条「新扩展」，而且新的那条 storage 是空的、永远停在未配置状态。用户 Chrome 里残留的 `UnpackedExtensions\bookmarkhub-1.0.2-chrome_28692_553569640` 目录和 ID `haedikijkpbmanjmahmpoleebeijcphi` 就是这么来的，按上述算法从该路径算出的 ID 与之完全一致。有了 `key`，ID 与路径无关，再装就是原地覆盖。
 

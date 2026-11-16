@@ -121,8 +121,10 @@
 ```bash
 pnpm install          # 安装依赖
 pnpm run dev          # Chrome 开发模式
+pnpm run dev:edge     # Edge 开发模式
 pnpm run build        # 构建到 .output/chrome-mv3/
 pnpm run zip          # 打包
+pnpm run zip:edge     # 打包 Edge 商店提交包（不带 key）
 ```
 
 技术栈 WXT + React + TypeScript。架构说明、发版流程和各种踩过的坑见 [CLAUDE.md](CLAUDE.md)。

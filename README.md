@@ -90,8 +90,10 @@ An earlier version synced automatically on every change. It was removed: an MV3 
 ```bash
 pnpm install
 pnpm run dev          # Chrome dev mode
+pnpm run dev:edge     # Edge dev mode
 pnpm run build        # .output/chrome-mv3/
 pnpm run zip
+pnpm run zip:edge     # Edge store package (no manifest key)
 ```
 
 Built with WXT, React and TypeScript. Architecture notes, the release procedure and the traps encountered along the way are in [CLAUDE.md](CLAUDE.md) (Chinese).
